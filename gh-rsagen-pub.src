@@ -1,0 +1,241 @@
+Manifest = {}
+Manifest.version = "0.1.0"
+Manifest.RSAVer = "0.1.0 PUBLIC"
+
+check_prime = function(value)
+    if(value <= 1) then return false;
+    if(value <= 3) then return true;
+    if(value % 2 == 0 or value % 3 == 0) then return false;
+    i = 5
+    while i * i <= value
+        if(value % i == 0 or value%(i+2)==0) then return false;
+        i=i+6;
+    end while
+    return true
+end function
+
+gcd = function(valA, valB)
+    a = valA
+    b = valB
+    buffer = b
+    while b != 0
+        buffer = a
+        a = b
+        b = buffer % b
+    end while
+    return a;
+end function
+
+Encode = function(password,e,n)
+    powModule = function(base,exp,modulus)
+        result = 1
+        exponent = exp
+        base = base % modulus
+        while(exponent > 0)
+            if (bitwise("&",exponent,1) == 1) then
+                result = (result * base) % modulus;
+            end if
+            exponent = bitwise(">>",exponent,1)
+            base = (base*base) % modulus;
+        end while
+        return result;
+    end function
+    result = []
+    for c in password
+        calc = powModule(c.code,e,n);
+        result.push(calc);
+    end for
+    return result.join(":::");
+end function
+
+Decode = function(password,d,n)
+	powModule = function(base,exp,modulus)
+        result = 1
+        exponent = exp
+        base = base % modulus
+        while(exponent > 0)
+            if (bitwise("&",exponent,1) == 1) then
+                result = (result * base) % modulus;
+            end if
+            exponent = bitwise(">>",exponent,1)
+            base = (base*base) % modulus;
+        end while
+        return result;
+    end function
+	parsingStr = password.split(":::")
+    result = []
+    for c in parsingStr
+        calc = powModule(to_int(c),d,n);
+        result.push(char(calc))
+    end for
+    return result.join("");
+end function;
+
+
+
+
+
+choose_e = function(phi)
+        e = 65537
+        // Находим e, которое является взаимно простым с phi
+        while e < phi
+            if gcd(e, phi) == 1 then return e
+            e = e + 2
+        end while
+    return null
+end function
+
+mod_inverse = function(e,phi)
+    print("");
+    print("Please, wait...")
+    print("This can take a long time....")
+    for d in range(1,phi/2)
+        if((e * d) % phi == 1) then return d;
+    end for
+    return null;
+end function
+
+calculate_phi = function(p,q)
+    return (p-1)*(q-1);
+end function
+
+calculate_d = function(e,phi)
+    return mod_inverse(e,phi);
+end function
+
+generate_prime = function(min,max,letter = "Q")
+    result = 1
+    i = 0
+    wait(1)
+    while(not check_prime(result))
+        i=i+1
+        result = floor(rnd * (max - min + 1) + min);
+        wait(0.02)
+    end while
+    return result;
+end function
+
+generateKeys = function()
+    
+    p = generate_prime(1000,9000,"p")
+    q = generate_prime(1000,9000,"q")
+    n = p * q
+    phi = calculate_phi(p,q)
+    e = choose_e(phi)
+    if(gcd(e,phi) != 1) then
+        print("Something went wrong... Retrying...")
+        wait(2)
+        return generateKeys();
+    end if
+    print("Calculating 'Private' key...")
+    d = calculate_d(e,phi)
+    if(d == null) then
+        print("Failed to calculate private key... Retyring in 3 seconds...")
+        wait(3);
+        return generateKeys()
+    else
+        print("Private key generated")
+    end if
+    wait(1);
+    keys = {}
+    keys.e = e;
+    keys.n = n;
+    keys.d = d;
+
+    print("Validating keys...")
+    print("Test password is: qsHAF31Sdmc3")
+    encrypted = Encode("qsHAF31Sdmc3",keys.e,keys.n)
+    wait(2);
+    print("Encrypted string: "+encrypted);
+    print("Decrypting with ""Private"" key...");
+    decrypted = Decode(encrypted,keys.d,keys.n);
+    wait(2);
+    print("Decrypted: "+decrypted);
+    if(decrypted != "qsHAF31Sdmc3") then
+        print("Keys is not valid... Retrying... Press CTRL+C to stop process")
+        wait(2)
+        return generateKeys();
+    end if
+    print("Keys is validated.")
+    return keys;
+end function
+
+clear_screen
+print("================[RSA GENERATOR PUBLIC]================")
+print("ooooooooo.    .oooooo..o       .o.       ")
+print("`888   `Y88. d8P'    `Y8      .888.      ")
+print(" 888   .d88' Y88bo.          .8'888.     ")
+print(" 888ooo88P'   `'Y8888o.     .8' `888.    ")
+print(" 888`88b.         `'Y88b   .88ooo8888.   ")
+print(" 888  `88b.  oo     .d8P  .8'     `888.  ")
+print("o888o  o888o 8""88888P'  o88o     o8888o ")
+print("================[RSA GENERATOR PUBLIC]================")
+print(format_columns("Version: "+Manifest.version+"\nEnc.ver: "+Manifest.RSAVer+"\nAuthor: LogZep"))
+print("======================================================")
+wait(1)
+keys = generateKeys();
+
+cpath = current_path
+comp = get_shell.host_computer
+encode = comp.File(cpath+"/encode.src")
+if(encode != null) then encode.delete();
+s = comp.touch(cpath,"encode.src")
+if(typeof(s) == "string") then exit(s)
+encode = comp.File(cpath+"/encode.src")
+decode = comp.File(cpath+"/decode.bin")
+if(decode != null) then decode.delete();
+d = "dsd";
+encode.set_content("Encode = function(password)
+    powModule = function(base,exp,modulus)
+        result = 1
+        exponent = exp
+        base = base % modulus
+        while(exponent > 0)
+            if (bitwise(""&"",exponent,1) == 1) then
+                result = (result * base) % modulus;
+            end if
+            exponent = bitwise("">>"",exponent,1)
+            base = (base*base) % modulus;
+        end while
+        return result;
+    end function
+    result = []
+    for c in password
+        calc = powModule(c.code,"+keys.e+","+keys.n+");
+        result.push(calc);
+    end for
+    return result.join("":::"");
+end function")
+
+comp.touch(cpath,"decode.bin.src")
+decode = comp.File(cpath+"/decode.bin.src")
+decode.set_content("Decode = function(password)
+	powModule = function(base,exp,modulus)
+        result = 1
+        exponent = exp
+        base = base % modulus
+        while(exponent > 0)
+            if (bitwise(""&"",exponent,1) == 1) then
+                result = (result * base) % modulus;
+            end if
+            exponent = bitwise("">>"",exponent,1)
+            base = (base*base) % modulus;
+        end while
+        return result;
+    end function
+	parsingStr = password.split("":::"")
+    print(parsingStr)
+    result = []
+    for c in parsingStr
+        calc = powModule(to_int(c),"+keys.d+","+keys.n+");
+        result.push(char(calc))
+    end for
+    return result.join("""");
+end function;")
+get_shell.build(cpath+"/decode.bin.src",cpath)
+decode.delete();
+
+print("<size=40> </size>")
+print("<size=30>FINISHED</size>")
+print("encode file is saved at: "+cpath+"/encode.src")
+print("decode file is saved at: "+cpath+"/decode.bin")
